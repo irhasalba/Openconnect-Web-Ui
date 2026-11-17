@@ -6,7 +6,7 @@ Web UI wrapper around gpclient (GlobalProtect-openconnect by yuezk).
 Workflow (same as the original GP Connect app):
   1. User only enters the portal URL
   2. gpclient authenticates automatically:
-     - SAML/SSO portals (e.g. sasa.telkomsel.co.id): opens a browser login window
+     - SAML/SSO portals (e.g. xxxx-xx-xx.com): opens a browser login window
      - Password portals: prompts for username/password (relayed to this UI)
   3. Gateway is selected automatically (--auto-gateway)
   4. VPN tunnel is established

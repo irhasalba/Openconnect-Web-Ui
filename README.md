@@ -4,7 +4,7 @@ Web UI untuk **GlobalProtect VPN**, menggunakan `gpclient` (dari [yuezk/GlobalPr
 
 ## Fitur
 
-✅ **Simple**: Hanya input URL portal (contoh: `sasa.telkomsel.co.id`)  
+✅ **Simple**: Hanya input URL portal (contoh: `xxx-xxx-xxx.com`)  
 ✅ **SAML/SSO Support**: Otomatis membuka browser untuk login SSO  
 ✅ **Auto Gateway**: Memilih gateway secara otomatis  
 ✅ **Session Caching**: Menyimpan login session untuk koneksi berikutnya  
@@ -69,10 +69,10 @@ Akses: **http://localhost:5000**
 ### 3. Connect ke VPN
 
 1. Klik tombol **"Connect VPN"**
-2. Masukkan portal address: `sasa.telkomsel.co.id`
+2. Masukkan portal address: `xxxx-xx-xx.com`
 3. Klik **"Connect"**
 
-**Untuk portal SAML/SSO** (seperti `sasa.telkomsel.co.id`):
+**Untuk portal SAML/SSO** (seperti `xxxx-xx-xx.com`):
 - Browser akan otomatis terbuka
 - Login dengan kredensial SSO kamu
 - Setelah berhasil, tutup browser dan kembali ke aplikasi
@@ -111,7 +111,7 @@ sudo apt install globalprotect-openconnect
 2. Browser default sistem harus sudah dikonfigurasi
 3. Coba jalankan manual dari terminal:
    ```bash
-   sudo gpclient connect sasa.telkomsel.co.id --browser
+   sudo gpclient connect xxxx-xx-xx.com --browser
    ```
 
 ### VPN connect tapi tidak bisa browsing
@@ -124,7 +124,7 @@ cat /etc/resolv.conf
 
 ## Portal yang Sudah Ditest
 
-✅ **sasa.telkomsel.co.id** (SAML/SSO)  
+✅ **xxxx-xx-xx.com** (SAML/SSO)  
 ✅ Portal dengan username/password  
 
 ## Struktur Folder
