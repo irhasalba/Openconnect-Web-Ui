@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GP Connect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+                <span>GP Connect</span>
+            </div>
+
+            <nav class="nav">
+                <button class="nav-item active" data-view="connect">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                    Connect
+                </button>
+                <button class="nav-item" data-view="logs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <path d="M14 2v6h6"/>
+                    </svg>
+                    Logs
+                </button>
+                <button class="nav-item" data-view="settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+                    </svg>
+                    Settings
+                </button>
+            </nav>
+
+            <div class="status-badge" id="statusBadge">
+                <span class="status-dot"></span>
+                <span class="status-text">Disconnected</span>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Connect View -->
+            <div class="view active" id="view-connect">
+                <header class="view-header">
+                    <h1>GlobalProtect VPN</h1>
+                    <p class="subtitle">Enter your portal address, the rest is automatic</p>
+                </header>
+
+                <div class="connect-container">
+                    <div class="connection-card">
+                        <div class="connection-icon" id="connectionIcon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                        </div>
+
+                        <div class="connection-status" id="connectionStatus">Disconnected</div>
+                        <div class="connection-info" id="connectionInfo">Ready to connect</div>
+
+                        <button class="btn btn-primary connect-btn-large" id="mainActionBtn" onclick="showPortalInput()">
+                            Connect VPN
+                        </button>
+
+                        <!-- Single step: Portal URL -->
+                        <form class="inline-portal-form hidden" id="portalForm" onsubmit="event.preventDefault(); startConnection();">
+                            <div class="portal-input-group">
+                                <div class="portal-input-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="2" y1="12" x2="22" y2="12"/>
+                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                    </svg>
+                                </div>
+                                <input
+                                    type="text"
+                                    id="portal"
+                                    placeholder="sasa.telkomsel.co.id"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                    required
+                                >
+                                <button type="submit" class="btn btn-primary">Connect</button>
+                            </div>
+                            <div class="portal-hint">
+                                Portal URL only, no <code>https://</code> needed. Any saved login is reused automatically.
+                            </div>
+                            <div class="form-actions" style="justify-content: center; margin-top: 16px;">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="cancelConnection()">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Waiting / connecting -->
+                        <div class="loading-state inline hidden" id="loadingState">
+                            <div class="spinner"></div>
+                            <p id="loadingText">Connecting...</p>
+                            <p class="loading-sub">A browser window will open if your portal uses SSO / SAML.</p>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="handleDisconnect()">
+                                Cancel
+                            </button>
+                        </div>
+
+                        <!-- Interactive prompt (username/password) -->
+                        <div class="prompt-box hidden" id="promptBox">
+                            <div class="prompt-header">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="12" cy="7" r="4"/>
+                                </svg>
+                                <label id="promptLabel">Username:</label>
+                            </div>
+                            <form onsubmit="event.preventDefault(); submitPrompt();">
+                                <input type="text" id="promptInput" autocomplete="off" required>
+                                <button type="submit" class="btn btn-primary">Submit</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- OpenConnect Warning -->
+                    <div class="warning-box hidden" id="openconnectWarning">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        <div>
+                            <strong>gpclient / openconnect not found</strong>
+                            <p>Install GlobalProtect-openconnect and OpenConnect before connecting.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs View -->
+            <div class="view" id="view-logs">
+                <header class="view-header">
+                    <h1>Connection Logs</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="clearLogs()">Clear Logs</button>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshStatus()">Refresh</button>
+                    </div>
+                </header>
+                <div class="log-container" id="logContainer">
+                    <div class="empty-state">No logs yet. Connect to VPN to see logs.</div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div class="view" id="view-settings">
+                <header class="view-header">
+                    <h1>Settings</h1>
+                </header>
+                <div class="settings-container">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>VPN Tools</h3>
+                            <p id="openconnectStatus">Checking...</p>
+                        </div>
+                        <span class="badge" id="openconnectBadge">Unknown</span>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Auto-refresh</h3>
+                            <p>Automatically refresh connection status every 2 seconds</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="autoRefresh" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Recent Portals</h3>
+                            <p>Your recently used portal addresses</p>
+                        </div>
+                        <div id="recentPortals" style="font-size: 13px; color: var(--text-secondary); text-align: right;">None</div>
+                    </div>
+
+                    <div class="setting-item warning">
+                        <div class="setting-info">
+                            <h3>Passwordless sudo required</h3>
+                            <p>Add this to <code>/etc/sudoers.d/gpclient</code> so the UI can start the VPN:</p>
+                            <pre><code>%sudo ALL=(ALL) NOPASSWD: /usr/bin/gpclient, /usr/bin/gpauth, /usr/sbin/openconnect</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
