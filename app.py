@@ -17,6 +17,7 @@ import pty
 import select
 import shlex
 import signal
+import sqlite3
 import subprocess
 import threading
 import time
@@ -28,6 +29,44 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 GPCLIENT = shlex.quote('/usr/bin/gpclient')
+
+# SQLite database holding the user's saved portals
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'portals.db')
+
+
+def get_db_connection():
+    """Open a SQLite connection with row access by column name."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    """Create the portals table if it does not exist yet."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS portals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                url TEXT NOT NULL UNIQUE
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def normalize_url(url):
+    """Strip scheme and trailing slashes: 'https://vpn.x.com/' -> 'vpn.x.com'."""
+    url = (url or '').strip()
+    url = re.sub(r'^https?://', '', url, flags=re.IGNORECASE)
+    return url.rstrip('/').strip()
+
+
+init_db()
 
 vpn_state = {
     'connected': False,
@@ -211,6 +250,78 @@ def sudo_gpclient_works():
 
 # ---------- Routes ----------
 
+@app.route('/api/portals', methods=['GET'])
+def list_portals():
+    conn = get_db_connection()
+    try:
+        rows = conn.execute('SELECT id, name, url FROM portals ORDER BY name COLLATE NOCASE ASC').fetchall()
+    finally:
+        conn.close()
+    return jsonify({'success': True, 'portals': [dict(r) for r in rows]})
+
+
+def _parse_portal_payload(data):
+    name = (data.get('name') or '').strip()
+    raw_url = (data.get('url') or '').strip()
+    url = normalize_url(raw_url)
+    if not url:
+        return None, None, 'Portal URL is required'
+    if not name:
+        name = url
+    return name, url, None
+
+
+@app.route('/api/portals', methods=['POST'])
+def create_portal():
+    data = request.get_json(silent=True) or {}
+    name, url, error = _parse_portal_payload(data)
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    conn = get_db_connection()
+    try:
+        cur = conn.execute('INSERT INTO portals (name, url) VALUES (?, ?)', (name, url))
+        conn.commit()
+        row = conn.execute('SELECT id, name, url FROM portals WHERE id = ?', (cur.lastrowid,)).fetchone()
+    except sqlite3.IntegrityError:
+        return jsonify({'success': False, 'message': 'A portal with this URL already exists'}), 409
+    finally:
+        conn.close()
+    return jsonify({'success': True, 'portal': dict(row)}), 201
+
+
+@app.route('/api/portals/<int:portal_id>', methods=['PUT'])
+def update_portal(portal_id):
+    data = request.get_json(silent=True) or {}
+    name, url, error = _parse_portal_payload(data)
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    conn = get_db_connection()
+    try:
+        cur = conn.execute('UPDATE portals SET name = ?, url = ? WHERE id = ?', (name, url, portal_id))
+        conn.commit()
+        if cur.rowcount == 0:
+            return jsonify({'success': False, 'message': 'Portal not found'}), 404
+        row = conn.execute('SELECT id, name, url FROM portals WHERE id = ?', (portal_id,)).fetchone()
+    except sqlite3.IntegrityError:
+        return jsonify({'success': False, 'message': 'A portal with this URL already exists'}), 409
+    finally:
+        conn.close()
+    return jsonify({'success': True, 'portal': dict(row)})
+
+
+@app.route('/api/portals/<int:portal_id>', methods=['DELETE'])
+def delete_portal(portal_id):
+    conn = get_db_connection()
+    try:
+        cur = conn.execute('DELETE FROM portals WHERE id = ?', (portal_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            return jsonify({'success': False, 'message': 'Portal not found'}), 404
+    finally:
+        conn.close()
+    return jsonify({'success': True})
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -237,7 +348,7 @@ def connect():
         return jsonify({'success': False, 'message': 'Portal address is required'})
 
     # Normalize: drop scheme and trailing slash, gpclient accepts bare hostnames
-    portal = re.sub(r'^https?://', '', portal).strip().rstrip('/')
+    portal = normalize_url(portal)
     vpn_state['portal'] = portal
 
     with state_lock:
