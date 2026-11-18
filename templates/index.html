@@ -69,6 +69,20 @@
                         <div class="connection-status" id="connectionStatus">Disconnected</div>
                         <div class="connection-info" id="connectionInfo">Ready to connect</div>
 
+                        <div class="portal-selector" id="portalSelector">
+                            <div class="portal-select-row">
+                                <select id="portalDropdown" onchange="onPortalSelectChange()">
+                                    <option value="">-- Select Saved Portal --</option>
+                                </select>
+                                <button class="btn btn-secondary btn-icon" onclick="openPortalManager()" title="Manage Portals">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
                         <button class="btn btn-primary connect-btn-large" id="mainActionBtn" onclick="showPortalInput()">
                             Connect VPN
                         </button>
@@ -201,6 +215,37 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Portal Manager Modal -->
+    <div class="modal-overlay hidden" id="portalManagerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Manage Portals</h2>
+                <button class="btn-icon close-btn" onclick="closePortalManager()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form class="portal-form" onsubmit="event.preventDefault(); savePortalFromForm();">
+                    <div class="form-group">
+                        <label for="portalName">Portal Name</label>
+                        <input type="text" id="portalName" placeholder="e.g. Office VPN" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="portalUrl">Portal URL</label>
+                        <input type="text" id="portalUrl" placeholder="your-vpn-tunnel.com" autocomplete="off" spellcheck="false" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="resetPortalForm()">Clear</button>
+                        <button type="submit" class="btn btn-primary btn-sm" id="portalFormSubmitBtn">Add Portal</button>
+                    </div>
+                </form>
+
+                <div class="portal-list-header">Saved Portals</div>
+                <div class="portal-list" id="portalList">
+                    <div class="empty-state">No saved portals yet.</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Toast Notifications -->

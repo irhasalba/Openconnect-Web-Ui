@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initToolCheck();
     initPolling();
     loadSavedPortal();
+    loadPortals();
 });
 
 // ---------- Navigation ----------
@@ -94,6 +95,165 @@ function savePortal(portal) {
     localStorage.setItem('gp_recent_portals', JSON.stringify(recent));
     renderRecent();
 }
+
+// ---------- Portal CRUD (SQLite-backed) ----------
+let savedPortals = [];
+let editingPortalId = null;
+
+async function loadPortals() {
+    try {
+        const resp = await fetch('/api/portals');
+        const data = await resp.json();
+        savedPortals = (data && data.success) ? data.portals : [];
+    } catch (e) {
+        console.error('Failed to load portals:', e);
+        savedPortals = [];
+    }
+    renderPortalDropdown();
+    renderPortalManagerList();
+}
+
+function renderPortalDropdown() {
+    const select = document.getElementById('portalDropdown');
+    if (!select) return;
+    const current = select.value;
+    let html = '<option value="">-- Select Saved Portal --</option>';
+    savedPortals.forEach(p => {
+        html += `<option value="${escapeHtml(p.url)}">${escapeHtml(p.name || p.url)}</option>`;
+    });
+    select.innerHTML = html;
+
+    const savedPortal = localStorage.getItem('gp_last_portal');
+    const match = savedPortals.find(p => p.url === savedPortal);
+    if (match) {
+        select.value = match.url;
+    } else if (current && savedPortals.some(p => p.url === current)) {
+        select.value = current;
+    }
+}
+
+function onPortalSelectChange() {
+    const select = document.getElementById('portalDropdown');
+    const url = select.value;
+    if (!url) return;
+    const input = document.getElementById('portal');
+    if (input) input.value = url;
+    // Make sure the portal form is visible so the user can hit Connect
+    showPortalInput();
+}
+
+function openPortalManager() {
+    resetPortalForm();
+    renderPortalManagerList();
+    document.getElementById('portalManagerModal').classList.remove('hidden');
+}
+
+function closePortalManager() {
+    document.getElementById('portalManagerModal').classList.add('hidden');
+}
+
+function renderPortalManagerList() {
+    const container = document.getElementById('portalList');
+    if (!container) return;
+    if (!savedPortals.length) {
+        container.innerHTML = '<div class="empty-state">No saved portals yet.</div>';
+        return;
+    }
+    container.innerHTML = savedPortals.map(p => `
+        <div class="portal-item">
+            <div class="portal-item-info">
+                <div class="portal-item-name">${escapeHtml(p.name || p.url)}</div>
+                <div class="portal-item-url">${escapeHtml(p.url)}</div>
+            </div>
+            <div class="portal-item-actions">
+                <button class="btn btn-secondary btn-sm" onclick="editPortal(${p.id})">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deletePortal(${p.id})">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function resetPortalForm() {
+    editingPortalId = null;
+    document.getElementById('portalName').value = '';
+    document.getElementById('portalUrl').value = '';
+    document.getElementById('portalFormSubmitBtn').textContent = 'Add Portal';
+}
+
+function editPortal(id) {
+    const portal = savedPortals.find(p => p.id === id);
+    if (!portal) return;
+    editingPortalId = id;
+    document.getElementById('portalName').value = portal.name || '';
+    document.getElementById('portalUrl').value = portal.url || '';
+    document.getElementById('portalFormSubmitBtn').textContent = 'Update Portal';
+    document.getElementById('portalName').focus();
+}
+
+async function deletePortal(id) {
+    const portal = savedPortals.find(p => p.id === id);
+    const label = portal ? (portal.name || portal.url) : `#${id}`;
+    if (!confirm(`Delete portal "${label}"?`)) return;
+
+    try {
+        const resp = await fetch(`/api/portals/${id}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (!data.success) {
+            showToast(data.message || 'Failed to delete portal', 'error');
+            return;
+        }
+        showToast('Portal deleted', 'info');
+        if (editingPortalId === id) resetPortalForm();
+        await loadPortals();
+    } catch (e) {
+        showToast('Error deleting portal: ' + e.message, 'error');
+    }
+}
+
+async function savePortalFromForm() {
+    const name = document.getElementById('portalName').value.trim();
+    const url = document.getElementById('portalUrl').value.trim();
+
+    if (!url) {
+        showToast('Portal URL is required', 'error');
+        return;
+    }
+
+    const isEdit = editingPortalId !== null;
+    const endpoint = isEdit ? `/api/portals/${editingPortalId}` : '/api/portals';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    try {
+        const resp = await fetch(endpoint, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, url })
+        });
+        const data = await resp.json();
+        if (!data.success) {
+            showToast(data.message || 'Failed to save portal', 'error');
+            return;
+        }
+        showToast(isEdit ? 'Portal updated' : 'Portal added', 'success');
+        resetPortalForm();
+        await loadPortals();
+    } catch (e) {
+        showToast('Error saving portal: ' + e.message, 'error');
+    }
+}
+
+// Close modal on backdrop click or ESC
+document.addEventListener('click', (event) => {
+    const modal = document.getElementById('portalManagerModal');
+    if (event.target === modal) closePortalManager();
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('portalManagerModal');
+        if (modal && !modal.classList.contains('hidden')) closePortalManager();
+    }
+});
 
 // ---------- UI state ----------
 function showPortalInput() {
