@@ -1,0 +1,39 @@
+# Database files
+portals.db
+test_portals.db
+*.db-journal
+
+# Dependencies
+node_modules/
+
+# Bun
+.bun/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Superpowers
+/docs
+/.worktrees
+
+# Temporary files
+/tmp
+*.tmp
