@@ -125,30 +125,17 @@ function runGpclient(portal: string) {
 
       logMessage(`Starting: ${cmd.slice(1).join(' ')}`);
 
-      const terminal = new Bun.Terminal({
-        rows: 24,
-        cols: 80,
-      });
+      let buffer = '';
+      let terminalRef: any = null;
 
       const proc = Bun.spawn(cmd, {
-        terminal,
-        stdio: ['inherit', 'inherit', 'inherit'],
-      });
-
-      vpnState.process = proc;
-      vpnState.terminal = terminal;
-
-      let buffer = '';
-
-      const reader = terminal.readable.getReader();
-
-      async function readLoop() {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const text = new TextDecoder().decode(value);
+        terminal: {
+          cols: 80,
+          rows: 24,
+          data(terminal, data) {
+            terminalRef = terminal;
+            
+            const text = new TextDecoder().decode(data);
             buffer += text;
 
             const lines = buffer.split('\n');
@@ -183,14 +170,12 @@ function runGpclient(portal: string) {
               };
               logMessage(`Waiting for input: ${tail}`, 'warning');
             }
-          }
-        } catch (e) {
-          logMessage(`Read error: ${e}`, 'error');
-        }
-      }
+          },
+        },
+      });
 
-      // Start reading
-      readLoop();
+      vpnState.process = proc;
+      vpnState.terminal = terminalRef;
 
       // Wait for process exit
       const exitCode = await proc.exited;
